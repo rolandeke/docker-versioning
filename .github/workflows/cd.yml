@@ -1,0 +1,30 @@
+name: CD Workflow
+
+on:
+  workflow_run:
+    workflows: ["build-wf"]
+    types: 
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download run number artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: run-number
+          path: ./ # Download to the current directory
+
+      - name: Read run number
+        id: read-run-number
+        run: |
+          RUN_NUMBER=$(cat run_number.txt)
+          echo "RUN_NUMBER=${RUN_NUMBER}"
+          echo "::set-output name=run_number::${RUN_NUMBER}"
+
+      - name: Use run number
+        run: echo "The run number from the CI workflow is ${{ steps.read-run-number.outputs.run_number }}"

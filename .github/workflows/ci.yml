@@ -82,3 +82,12 @@ jobs:
               images+="${tag}@${DIGEST} "
           done
           cosign sign --yes ${images}
+
+      - name: get run number
+        run: echo "RUN_NUMBER=${{github.run_number}}" > run_number.txt
+
+      - name: upload run number artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: run-number
+          path: run_number.txt
