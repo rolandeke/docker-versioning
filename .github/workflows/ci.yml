@@ -1,0 +1,15 @@
+name: build-wf
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+
+    steps:
+       - uses: actions/checkout@v4
+
+       - name: build docker image
+         run: docker build -t rolandeke/versioning:$(date +%s)
