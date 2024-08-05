@@ -4,12 +4,68 @@ on:
   push:
     branches: ["master"]
 
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: rolandeke/versioning
+  IMAGE_TAG: 1.0.${{github.run_number}}
+
 jobs:
-  build-image:
+  build-and-push-image:
     runs-on: ubuntu-latest
 
-    steps:
-       - uses: actions/checkout@v4
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
 
-       - name: build docker image
-         run: docker build -t rolandeke/versioning:$(date +%s) .
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
+      - name: install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3.5.0
+        with:
+          cosign-release: "v2.2.4"
+
+      - name: check cosign install
+        if: github.event_name != 'pull_request'
+        run: cosign version
+
+      - name: setup docker buildx
+        uses: docker/setup-buildx-action@v2.1.0
+
+      - name: login to registry ${{env.REGISTRY}}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v2.1.0
+        with:
+          registry: ${{env.REGISTRY}}
+          username: ${{github.actor}}
+          password: ${{secrets.DOCKER_HUB_ACCESS_TOKEN}}
+
+      - name: Extract docker metadata
+        id: docker-meta
+        uses: docker/metadata-action@v4.4.0
+        with:
+          images: ${{env.REGISTRY}}/${{env.IMAGE_NAME}}
+          tags: type=sha,format=long
+
+      - name: build and push docker image
+        uses: docker/build-push-action@v4.0.0
+        id: build-and-push
+        with:
+          platforms: linux/amd64,linux/arm/v7,linux/arm64
+          push: ${{github.event_name != 'pull_request'}}
+          tags: ${{env.REGISTRY}}/${{env.IMAGE_NAME}}:${{env.IMAGE_TAG}}
+          labels: ${{steps.docker-meta.outputs.labels}}
+
+      - name: sign image with github OIDC token
+        env:
+          DIGEST: ${{steps.build-and-push.outputs.digest}}
+          TAGS: ${{steps.docker-meta.outputs.tags}}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+              images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
