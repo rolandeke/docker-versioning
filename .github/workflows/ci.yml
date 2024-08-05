@@ -59,6 +59,19 @@ jobs:
           tags: ${{env.REGISTRY}}/${{env.IMAGE_NAME}}:${{env.IMAGE_TAG}}
           labels: ${{steps.docker-meta.outputs.labels}}
 
+      - name: Sign image with a key
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            image+="${tag}@$${DIGEST} "
+          done
+          cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${images}
+        env:
+          TAGS: ${{steps.docker-meta.outputs.tags}}
+          COSIGN_PRIVATE_KEY: ${{secrets.COSIGN_PRIVATE_KEY}}
+          COSIGN_PASSWORD: ${{secrets.COSIGN_PASSWORD}}
+          DIGEST: ${{steps.build-and-push.outputs.digest}}
+
       - name: sign image with github OIDC token
         env:
           DIGEST: ${{steps.build-and-push.outputs.digest}}
