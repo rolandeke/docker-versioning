@@ -91,3 +91,4 @@ jobs:
         with:
           name: run-number
           path: run_number.txt
+          retention-days: 1
